@@ -32,6 +32,10 @@ jobs:
       ZORT_DEFAULT_LIMIT: ${{ vars.ZORT_DEFAULT_LIMIT || '500' }}
       ZORT_SOURCE: ${{ vars.ZORT_SOURCE || 'zort' }}
       CRON_TIMEZONE: Asia/Bangkok
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_UPSERT_ENABLED: ${{ vars.SUPABASE_UPSERT_ENABLED || 'true' }}
+      SUPABASE_UPSERT_CHUNK_SIZE: ${{ vars.SUPABASE_UPSERT_CHUNK_SIZE || '500' }}
 
     steps:
       - name: Check out repository

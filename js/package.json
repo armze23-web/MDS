@@ -7,11 +7,13 @@
     "orders": "node src/fetch-orders.js",
     "movement": "node src/fetch-movement-orders.js",
     "summary": "node src/summarize.js",
+    "supabase:upsert": "node src/upsert-supabase.js",
     "diagnose": "node src/diagnose-orders.js",
     "sync": "node src/sync.js",
     "cron": "node src/cron.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "dotenv": "^16.4.7",
     "node-cron": "^4.2.1"
   }

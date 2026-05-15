@@ -24,6 +24,7 @@ create table if not exists public.zort_movement_orders (
 create table if not exists public.zort_movement_items (
   source text not null,
   order_id text not null,
+  item_key text not null,
   product_id text not null,
   action_date date,
   product_sku text,
@@ -34,7 +35,7 @@ create table if not exists public.zort_movement_items (
   line_total numeric,
   raw_json jsonb,
   synced_at timestamptz not null default now(),
-  primary key (source, order_id, product_id)
+  primary key (source, order_id, item_key)
 );
 
 create table if not exists public.zort_daily_summaries (

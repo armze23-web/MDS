@@ -10,6 +10,7 @@ const args = parseArgs(process.argv.slice(2));
 const pipeline = args.pipeline ?? process.env.SYNC_PIPELINE ?? 'daily';
 const tasks = parseTasks(args.tasks ?? process.env.SYNC_TASKS, PIPELINE_TASKS[pipeline]);
 const dryRun = parseBoolean(args.dryRun ?? args['dry-run'] ?? process.env.SYNC_DRY_RUN);
+const supabaseEnabled = parseBoolean(args.supabase ?? process.env.SUPABASE_UPSERT_ENABLED ?? 'true');
 
 if (!PIPELINE_TASKS[pipeline]) {
   console.error(`Unknown pipeline: ${pipeline}. Use daily, mtd, or monthly.`);
@@ -31,6 +32,16 @@ try {
   for (const task of tasks) {
     await runNpmScript(task, ['--', `--after=${dateRange.after}`, `--before=${dateRange.before}`]);
   }
+
+  if (supabaseEnabled) {
+    await runNpmScript('supabase:upsert', [
+      '--',
+      `--pipeline=${pipeline}`,
+      `--after=${dateRange.after}`,
+      `--before=${dateRange.before}`,
+    ]);
+  }
+
   console.log(`Sync pipeline finished: ${pipeline}`);
 } catch (error) {
   console.error(`Sync pipeline failed: ${error.message}`);
