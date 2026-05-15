@@ -1,0 +1,86 @@
+name: ZORT Sync
+
+on:
+  schedule:
+    - cron: "1 17 * * *"   # 00:01 Asia/Bangkok, daily T-1
+    - cron: "10 17 * * *"  # 00:10 Asia/Bangkok, month-to-date
+    - cron: "30 17 28-31 * *" # 00:30 Asia/Bangkok on the 1st, monthly closing
+  workflow_dispatch:
+    inputs:
+      pipeline:
+        description: "Pipeline to run"
+        required: true
+        default: "daily"
+        type: choice
+        options:
+          - daily
+          - mtd
+          - monthly
+
+jobs:
+  zort-sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: js
+
+    env:
+      ZORT_STORE_NAME: ${{ secrets.ZORT_STORE_NAME }}
+      ZORT_API_KEY: ${{ secrets.ZORT_API_KEY }}
+      ZORT_API_SECRET: ${{ secrets.ZORT_API_SECRET }}
+      ZORT_BASE_URL: ${{ vars.ZORT_BASE_URL || 'https://open-api.zortout.com/v4' }}
+      ZORT_DEFAULT_LIMIT: ${{ vars.ZORT_DEFAULT_LIMIT || '500' }}
+      ZORT_SOURCE: ${{ vars.ZORT_SOURCE || 'zort' }}
+      CRON_TIMEZONE: Asia/Bangkok
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Select scheduled pipeline
+        id: pipeline
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.pipeline }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "1 17 * * *" ]; then
+            echo "name=daily" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "10 17 * * *" ]; then
+            echo "name=mtd" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=monthly" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip monthly closing except Thai first day
+        id: monthly_guard
+        shell: bash
+        run: |
+          if [ "${{ steps.pipeline.outputs.name }}" != "monthly" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "$(TZ=Asia/Bangkok date +%d)" = "01" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run ZORT sync
+        if: steps.monthly_guard.outputs.run == 'true'
+        run: npm run sync -- --pipeline=${{ steps.pipeline.outputs.name }}
+
+      - name: Upload output artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zort-output-${{ steps.pipeline.outputs.name }}-${{ github.run_id }}
+          path: js/output/
+          if-no-files-found: ignore
