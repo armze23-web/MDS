@@ -94,12 +94,11 @@ async function upsertOrders() {
 async function upsertMovementItems() {
   const movements = await readCsvIfExists(`output/movement_orders_flat_${dateAfter}_to_${dateBefore}.csv`);
   const rows = movements
-    .filter((item) => item.order_id)
-    .map((item, index) => ({
+    .filter((item) => item.order_id && item.product_id)
+    .map((item) => ({
       source: item.source || source,
       order_id: String(item.order_id),
-      item_key: buildMovementItemKey(item, index),
-      product_id: String(item.product_id || ''),
+      product_id: String(item.product_id),
       action_date: emptyToNull(item.action_date),
       product_sku: emptyToNull(item.product_sku),
       product_name: emptyToNull(item.product_name),
@@ -111,7 +110,7 @@ async function upsertMovementItems() {
       synced_at: new Date().toISOString(),
     }));
 
-  await upsertInChunks('zort_movement_items', rows, 'source,order_id,item_key');
+  await upsertInChunks('zort_movement_items', dedupeBy(rows, (row) => `${row.source}:${row.order_id}:${row.product_id}`), 'source,order_id,product_id');
   return rows.length;
 }
 
@@ -224,9 +223,8 @@ function toNumberOrNull(value) {
   return Number.isFinite(number) ? number : null;
 }
 
-function buildMovementItemKey(item, index) {
-  const productPart = item.product_id || item.product_sku || item.product_name || 'item';
-  return `${String(productPart)}-${String(index + 1).padStart(6, '0')}`;
+function dedupeBy(rows, getKey) {
+  return [...new Map(rows.map((row) => [getKey(row), row])).values()];
 }
 
 function parseArgs(argv) {
